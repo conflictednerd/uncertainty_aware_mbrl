@@ -1,0 +1,18 @@
+0. Integrate meta-world envs
+1. Train sac with the actual env to get upper bound on performance.
+    Loading and saving sac policies.
+2. Implement UA world model
+    See src/wm.py
+    Define a class for maintaining and training the world model.
+    The config should be specified in config/world_model/wm_default.yaml.
+    Network should be defined in src/nets.py
+    The class should have methods for:
+        - Initializing using the passed in config object. (see how config is used with SAC in src/main.py)
+        - Loading and saving the world model network
+        - Training the world model using a given dataset for n epochs. (see src/sac/SAC.update)
+        - Interact with the WM like a regular gym environment. (So, we should have a step method that acts just like a vectorized environment)
+        - ...
+
+3. Implement SAC with training inside world model
+4. Maintain two sac policies: one for exploration (reward = model uncertainty) and one for exploitation (task reward)
+    Both are trained solely in simulation. Periodically, they both interact with the environment to collect data for world model training.

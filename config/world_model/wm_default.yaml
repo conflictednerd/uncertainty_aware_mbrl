@@ -1,0 +1,6 @@
+_target_: ???
+
+# Model architecture, training config, etc.
+# TODO
+lr: 0.001
+batch_size: 64

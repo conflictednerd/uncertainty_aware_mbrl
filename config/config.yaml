@@ -1,0 +1,14 @@
+defaults:
+ - _self_
+ - policy: button_press
+ - world_model: wm_default
+
+exp_name: ???
+wandb:
+  enable: false
+  project_name: "ua_mbrl"
+  entity: null #entity (team)
+  tags: []
+
+
+seed: 42
