@@ -1,0 +1,6 @@
+defaults:
+  - sac_default
+  - _self_
+
+cfg:
+  env_id: "basketball-v2-goal-observable"
