@@ -165,3 +165,4 @@ outputs/
 videos/
 runs/
 wandb/
+.vscode/

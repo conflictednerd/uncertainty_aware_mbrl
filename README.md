@@ -3,11 +3,13 @@
 + Create a virutal env and install dependencies with `pip install -r requirements.txt`.
 You might need to install the development version (`sudo apt-get install python3.10-dev`) if box2d installation fails.
 + You might also need to install `swig` and/or `wheel`.
-+ **NOTE:** With the new update to `metaworld` installation of dependencies through `requirements.txt` may fail. If this happened:
-    + Install metaworld using `pip install git+https://github.com/Farama-Foundation/Metaworld.git@master#egg=metaworld`.
-    + Remove metaworld from `requirements.txt`. (last line)
-    + Install the requirements.
-    + Make sure that you are using `mujoco==2.3.0` and `gymnasium==0.29.1`, otherwise SAC training will not work!
++ ~~**NOTE:** With the new update to `metaworld` installation of dependencies through `requirements.txt` may fail. If this happened:~~
+    + ~~Install metaworld using `pip install git+https://github.com/Farama-Foundation/Metaworld.git@master#egg=metaworld`.~~
+    + ~~Remove metaworld from `requirements.txt`. (last line)~~
+    + ~~Install the requirements.~~
+    + ~~Make sure that you are using `mujoco==2.3.0` and `gymnasium==0.29.1`, otherwise SAC training will not work!~~
++ The dependency on stable-baselines3 is removed and the code is updated to work with `mujoco==3.2.5` and `gymnasium==1.0.0`.
+
 # Running
 + Run `python -m src.main exp_name="Name of your choosing"`.
 + Config can be modified in config/ directory or by overriding the default config through command line ([see hydra's docs for more details about setting up config](https://hydra.cc/docs/intro/)).

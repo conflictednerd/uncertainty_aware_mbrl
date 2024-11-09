@@ -1,11 +1,10 @@
-gymnasium[box2d]==0.29.1
+gymnasium[box2d]==1.0.0
 hydra-core==1.3.2
 matplotlib==3.9.2
 numpy==2.1.1
 omegaconf==2.3.0
-stable_baselines3==2.3.2
 torch==2.4.1
-mujoco==2.3.0
+mujoco==3.2.5
 moviepy==1.0.3
 wandb
 tensorboard

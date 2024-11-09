@@ -6,10 +6,10 @@ from metaworld.envs import ALL_V2_ENVIRONMENTS_GOAL_OBSERVABLE as ALL_ENVS
 
 # TODO:
 DEFAULT_CAMERA_CONFIG = {
-    "distance": 1.5,
+    # "distance": 1.5,
     "azimuth": 160,
-    "elevation": -15.0,
-    "lookat": np.array([0.0, 0.0, 0.5]),  # Use this for button push
+    # "elevation": -15.0,
+    # "lookat": np.array([0.0, 0.0, 0.5]),  # Use this for button push
 }
 
 DEFAULT_SIZE = 284
@@ -22,9 +22,11 @@ class CameraWrapper(gym.Wrapper):
         self.unwrapped.model.vis.global_.offwidth = DEFAULT_SIZE
         self.unwrapped.model.vis.global_.offheight = DEFAULT_SIZE
         self.unwrapped.mujoco_renderer = MujocoRenderer(
-            env.model,
-            env.data,
+            env.unwrapped.model,
+            env.unwrapped.data,
             DEFAULT_CAMERA_CONFIG,
+            DEFAULT_SIZE,
+            DEFAULT_SIZE,
         )
 
         # Hack: enable random reset

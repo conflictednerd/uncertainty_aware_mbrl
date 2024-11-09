@@ -8,9 +8,11 @@ import torch
 import torch.nn.functional as F
 import torch.optim as optim
 import wandb
-from stable_baselines3.common.buffers import ReplayBuffer
 
 from .nets import Actor, SoftQNetwork
+
+# from stable_baselines3.common.buffers import ReplayBuffer
+from .replay_buffer import ReplayBuffer
 from .utils import make_env
 
 logger = logging.getLogger(__name__)
@@ -82,11 +84,12 @@ class SAC(Policy):
             self.envs.single_observation_space,
             self.envs.single_action_space,
             self.device,
-            n_envs=self.envs.num_envs,
+            n_envs=1,
             handle_timeout_termination=False,
         )
 
         self.obs, _ = self.envs.reset(seed=seed)
+        self.autoreset = np.zeros(self.envs.num_envs)
 
     def _init_optimizers(self):
         """Initializes actor and critic's optimizers"""
@@ -126,30 +129,36 @@ class SAC(Policy):
             next_obs, rewards, terminations, truncations, infos = self.envs.step(
                 actions
             )
-            if "final_info" in infos:
-                for info in infos["final_info"]:
-                    if info and "episode" in info:
+            for j in range(self.envs.num_envs):
+                if not self.autoreset[j]:
+                    self.rb.add(
+                        self.obs[j],
+                        next_obs[j],
+                        actions[j],
+                        rewards[j],
+                        terminations[j],
+                        None,
+                    )
+
+            self.obs = next_obs
+            self.autoreset = np.logical_or(terminations, truncations)
+
+            if np.any(self.autoreset):
+                for j in range(self.envs.num_envs):
+                    if self.autoreset[j]:
                         logger.info(
-                            f"step: {self.global_step + step}, episodic_return={info['episode']['r']}"
+                            f"step: {self.global_step + step}, episodic_return={infos['episode']['r'][j]}"
                         )
                         self._log(
                             "SAC/episodic_return",
-                            float(info["episode"]["r"]),
+                            float(infos["episode"]["r"][j]),
                             self.global_step + step,
                         )
                         self._log(
                             "SAC/episodic_length",
-                            float(info["episode"]["l"]),
+                            float(infos["episode"]["l"][j]),
                             self.global_step + step,
                         )
-
-            real_next_obs = next_obs.copy()
-            for idx, trunc in enumerate(truncations):
-                if trunc:
-                    real_next_obs[idx] = infos["final_observation"][idx]
-            self.rb.add(self.obs, real_next_obs, actions, rewards, terminations, infos)
-
-            self.obs = next_obs
 
             if step > self.cfg.learning_starts:
                 # Accounting for multiple env steps in parallel
@@ -329,16 +338,30 @@ class SAC(Policy):
             actions = actions.detach().cpu().numpy()
 
             obs, rewards, terminations, truncations, infos = self.envs.step(actions)
-            if "final_info" in infos:
-                for info in infos["final_info"]:
-                    if info and "episode" in info:
-                        epi_rews.append(float(info["episode"]["r"]))
-                        epi_lens.append(float(info["episode"]["l"]))
-                        assert "success" in info, f"info.keys={list(info.keys())}"
+
+            autoreset = np.logical_or(terminations, truncations)
+
+            if np.any(autoreset):
+                for j in range(8):
+                    if autoreset[j]:
+                        epi_rews.append(float(infos["episode"]["r"][j]))
+                        epi_lens.append(float(infos["episode"]["l"][j]))
                         success.append(
-                            bool(info["success"]) and bool(info["grasp_success"])
+                            bool(infos["success"][j])
+                            and bool(infos["grasp_success"][j])
                         )
                         episode_count += 1
+
+            # if "final_info" in infos:
+            #     for info in infos["final_info"]:
+            #         if info and "episode" in info:
+            #             epi_rews.append(float(info["episode"]["r"]))
+            #             epi_lens.append(float(info["episode"]["l"]))
+            #             assert "success" in info, f"info.keys={list(info.keys())}"
+            #             success.append(
+            #                 bool(info["success"]) and bool(info["grasp_success"])
+            #             )
+            #             episode_count += 1
 
         logger.info("===== Evaluation =====")
         logger.info(f"n episodes = {len(epi_lens)}")
