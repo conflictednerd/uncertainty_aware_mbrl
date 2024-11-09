@@ -230,7 +230,7 @@ class SAC(Policy):
                                 + (1 - self.cfg.tau) * target_param.data
                             )
 
-                if step % 100 == 0:
+                if step % 200 == 0:
                     logging_step = self.global_step + step
                     self._log(
                         "SAC/qf1_values",
@@ -283,6 +283,8 @@ class SAC(Policy):
                             alpha_loss.item(),
                             logging_step,
                         )
+                if step % 100000 == 0:
+                    self._evaluate(logging_step=self.global_step + step)
         self.global_step += timesteps
 
     @torch.no_grad()
@@ -300,3 +302,69 @@ class SAC(Policy):
         self.writer.add_scalar(name, value, step)
         if self.wandb:
             wandb.log({name: value}, step=step)
+
+    @torch.no_grad()
+    def _evaluate(self, logging_step=None):
+        seed = 232323
+        n_evals = 50  # Number of evaluation episodes
+        envs = gym.vector.AsyncVectorEnv(
+            [
+                make_env(
+                    self.cfg.env_id,
+                    self.cfg.env_kwargs,
+                    seed + i,
+                    i,
+                    False,
+                    None,
+                )
+                for i in range(8)
+            ]
+        )
+
+        episode_count = 0
+        epi_lens, epi_rews, success = [], [], []
+        obs, infos = envs.reset()
+        while episode_count < n_evals:
+            actions, _, _ = self.actor.get_action(torch.Tensor(obs).to(self.device))
+            actions = actions.detach().cpu().numpy()
+
+            obs, rewards, terminations, truncations, infos = self.envs.step(actions)
+            if "final_info" in infos:
+                for info in infos["final_info"]:
+                    if info and "episode" in info:
+                        epi_rews.append(float(info["episode"]["r"]))
+                        epi_lens.append(float(info["episode"]["l"]))
+                        assert "success" in info, f"info.keys={list(info.keys())}"
+                        success.append(
+                            bool(info["success"]) and bool(info["grasp_success"])
+                        )
+                        episode_count += 1
+
+        logger.info("===== Evaluation =====")
+        logger.info(f"n episodes = {len(epi_lens)}")
+        logger.info(
+            f"episode length = {float(np.mean(epi_lens)):.2f} +- {float(np.std(epi_lens)):.2f}"
+        )
+        logger.info(
+            f"episode reward = {float(np.mean(epi_rews)):.2f} +- {float(np.std(epi_rews)):.2f}"
+        )
+        logger.info(
+            f"success rate = {float(np.mean(success)):.3f} +- {float(np.std(success)):.3f}"
+        )
+
+        if logging_step is not None:
+            self._log(
+                "SAC/Evaluation/episode length",
+                float(np.mean(epi_lens)),
+                logging_step,
+            )
+            self._log(
+                "SAC/Evaluation/episode reward",
+                float(np.mean(epi_rews)),
+                logging_step,
+            )
+            self._log(
+                "SAC/Evaluation/success rate",
+                float(np.mean(success)),
+                logging_step,
+            )

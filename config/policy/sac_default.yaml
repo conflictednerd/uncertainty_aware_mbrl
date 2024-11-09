@@ -15,15 +15,15 @@ cfg:
   # number of parallel envs 
   buffer_size: 1000000
   # the replay memory buffer size
-  gamma: 0.995
+  gamma: 0.99
   # the discount factor gamma
   tau: 0.005
   # target smoothing coefficient (default: 0.005)
-  batch_size: 256
+  batch_size: 512
   # the batch size of sample from the reply memory
   total_timesteps: 1000000
   # total interactions with the WM for training
-  learning_starts: 5e3
+  learning_starts: 1e4
   # timestep to start learning
   policy_lr: 3e-4
   # the learning rate of the policy network optimizer
@@ -35,5 +35,5 @@ cfg:
   # the frequency of updates for the target nerworks
   alpha: 0.1
   # Entropy regularization coefficient.
-  autotune: false
+  autotune: true
   # automatic tuning of the entropy coefficient
