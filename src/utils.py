@@ -62,9 +62,18 @@ class SuccessWrapper(gym.Wrapper):
         obs, reward, term, trunc, info = self.env.step(action)
         term = term or (bool(info["success"]) and bool(info["grasp_success"]))
         trunc = trunc or (self._h >= 500)
-        # TODO Add big reward on done
-        # if term:
-        #     reward += 100
+        # Reward shaping:
+        # The original reward is in [0, 10]
+        # We saw issues with the agent stalling near the goal and not finishing the episode to get more reward.
+        # There are two fixes to this:
+        #   + Never terminate the episode (always truncate) but this overcollects near-the-goal data.
+        #   + Penalize the agent at each step to incentivize faster termination and also add a big bonus reward upon success.
+        # Below we implement the second approach
+        reward /= 5  # in [0, 2]
+        reward -= 2  # in [-2, 0]
+        if term:
+            reward += 10
+
         return obs, reward, term, trunc, info
 
 
@@ -78,7 +87,7 @@ def make_env(env_id, env_kwargs, seed, idx, capture_video, run_name):
                 env,
                 f"videos/{run_name}",
                 disable_logger=True,
-                episode_trigger=lambda n: (n % 8) == 0,
+                episode_trigger=lambda n: (n % 100) in [0, 1],
             )
         else:
             env = ALL_ENVS[env_id](seed=seed, **env_kwargs)
