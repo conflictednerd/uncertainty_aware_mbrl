@@ -21,7 +21,7 @@ cfg:
   # target smoothing coefficient (default: 0.005)
   batch_size: 512
   # the batch size of sample from the reply memory
-  total_timesteps: 1000000
+  total_timesteps: 10000000
   # total interactions with the WM for training
   learning_starts: 1e4
   # timestep to start learning
