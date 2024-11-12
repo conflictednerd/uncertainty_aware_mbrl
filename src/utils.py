@@ -77,11 +77,12 @@ class SuccessWrapper(gym.Wrapper):
         return obs, reward, term, trunc, info
 
 
-def make_env(env_id, env_kwargs, seed, idx, capture_video, run_name):
+def make_env(env_id, env_kwargs, success_wrapper, seed, idx, capture_video, run_name):
     def thunk():
         if capture_video and idx == 0:
             env = ALL_ENVS[env_id](seed=seed, render_mode="rgb_array", **env_kwargs)
-            env = SuccessWrapper(env, seed)
+            if success_wrapper:
+                env = SuccessWrapper(env, seed)
             env = CameraWrapper(env, seed)
             env = gym.wrappers.RecordVideo(
                 env,
@@ -91,7 +92,8 @@ def make_env(env_id, env_kwargs, seed, idx, capture_video, run_name):
             )
         else:
             env = ALL_ENVS[env_id](seed=seed, **env_kwargs)
-            env = SuccessWrapper(env, seed)
+            if success_wrapper:
+                env = SuccessWrapper(env, seed)
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env.action_space.seed(seed)
         return env
