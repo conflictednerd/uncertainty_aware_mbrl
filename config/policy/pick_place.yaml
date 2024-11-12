@@ -4,3 +4,4 @@ defaults:
 
 cfg:
   env_id: "pick-place-v2-goal-observable"
+  success_wrapper: false

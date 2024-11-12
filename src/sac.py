@@ -44,6 +44,7 @@ class SAC(Policy):
                 make_env(
                     cfg.env_id,
                     cfg.env_kwargs,
+                    cfg.success_wrapper,
                     seed + i,
                     i,
                     cfg.capture_video and (i == 0),
@@ -321,6 +322,7 @@ class SAC(Policy):
                 make_env(
                     self.cfg.env_id,
                     self.cfg.env_kwargs,
+                    self.cfg.success_wrapper,
                     seed + i,
                     i,
                     False,

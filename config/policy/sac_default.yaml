@@ -9,6 +9,8 @@ cfg:
 
   env_id: ???
   # the environment id of the task
+  success_wrapper: true
+  # Whether we should use a success wrapper (terminate on success)
   env_kwargs: {}
   # arguments passed to env constructor
   num_envs: 8
