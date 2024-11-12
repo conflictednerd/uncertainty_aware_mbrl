@@ -3,4 +3,4 @@ defaults:
   - _self_
 
 cfg:
-  env_id: "door-open-v2-goal-observable"
+  env_id: "door-unlock-v2-goal-observable"

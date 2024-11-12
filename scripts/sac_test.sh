@@ -1,4 +1,4 @@
-python -m src.main exp_name="button_press_wall_baseline" policy="button_press_wall"
+# python -m src.main exp_name="button_press_wall_baseline" policy="button_press_wall"
 python -m src.main exp_name="button_press_baseline" policy="button_press"
 python -m src.main exp_name="button_press_topdown_baseline" policy="button_press_topdown"
 

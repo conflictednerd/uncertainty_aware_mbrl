@@ -4,3 +4,4 @@ defaults:
 
 cfg:
   env_id: "button-press-wall-v2-goal-observable"
+  total_timesteps: 2000000

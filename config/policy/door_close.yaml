@@ -4,3 +4,4 @@ defaults:
 
 cfg:
   env_id: "door-close-v2-goal-observable"
+  total_timesteps: 5000000
