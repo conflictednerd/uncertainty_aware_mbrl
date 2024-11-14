@@ -1,6 +1,7 @@
 import logging
 import time
 from abc import ABC, abstractmethod
+from typing import List, Tuple
 
 import gymnasium as gym
 import numpy as np
@@ -10,10 +11,9 @@ import torch.optim as optim
 import wandb
 
 from .nets import Actor, SoftQNetwork
-
-# from stable_baselines3.common.buffers import ReplayBuffer
 from .replay_buffer import ReplayBuffer
 from .utils import make_env
+from .wm import BaseWorldModel
 
 logger = logging.getLogger(__name__)
 
@@ -107,14 +107,20 @@ class SAC(Policy):
         self,
         timesteps: int,
         from_scratch: bool = False,
+        wm: BaseWorldModel = None,
     ):
         """
         Args:
             timesteps: Total number of timesteps (env interactions) to train for.
+            from_scratch: If True, will initialize the buffer with random actions.
+            wm: If not None, will use it to generate training data.
         """
         start_time = time.time()
+        if wm is not None:
+            wm.reset()
+            wm.nn.eval()
         for step in range(0, timesteps, self.envs.num_envs):
-            if step < self.cfg.learning_starts:
+            if step < self.cfg.learning_starts and from_scratch:
                 actions = np.array(
                     [
                         self.envs.single_action_space.sample()
@@ -127,9 +133,14 @@ class SAC(Policy):
                 )
                 actions = actions.detach().cpu().numpy()
 
-            next_obs, rewards, terminations, truncations, infos = self.envs.step(
-                actions
-            )
+            if wm:
+                next_obs, rewards, terminations, truncations, infos = wm.step(
+                    self.obs, actions
+                )
+            else:
+                next_obs, rewards, terminations, truncations, infos = self.envs.step(
+                    actions
+                )
             for j in range(self.envs.num_envs):
                 if not self.autoreset[j]:
                     self.rb.add(
@@ -293,7 +304,7 @@ class SAC(Policy):
                             alpha_loss.item(),
                             logging_step,
                         )
-                if step % 100000 == 0:
+                if wm is None and step % 100000 == 0:
                     self._evaluate(logging_step=self.global_step + step)
         self.global_step += timesteps
 
@@ -393,3 +404,52 @@ class SAC(Policy):
                 float(np.mean(success)),
                 logging_step,
             )
+
+    @torch.no_grad()
+    def collect_dataset(
+        self,
+        size,
+        do_random=False,
+    ) -> List[Tuple[np.ndarray, np.ndarray, np.ndarray, float, bool]]:
+        """
+        Returns a dataset of transitions using the policy
+        """
+        seed = 232323
+        envs = gym.vector.AsyncVectorEnv(
+            [
+                make_env(
+                    self.cfg.env_id,
+                    self.cfg.env_kwargs,
+                    self.cfg.success_wrapper,
+                    seed + i,
+                    i,
+                    False,
+                    None,
+                )
+                for i in range(8)
+            ]
+        )
+
+        ds = []
+        obs, infos = envs.reset()
+        autoreset = np.zeros(8)
+        while len(ds) < size:
+            if do_random:
+                actions = envs.action_space.sample()
+            else:
+                actions, _, _ = self.actor.get_action(torch.Tensor(obs).to(self.device))
+                actions = actions.detach().cpu().numpy()
+
+            next_obs, rewards, terminations, truncations, infos = self.envs.step(
+                actions
+            )
+            for j in range(8):
+                if not autoreset[j]:
+                    ds.append(
+                        (obs[j], actions[j], next_obs[j], rewards[j], terminations[j])
+                    )
+
+            autoreset = np.logical_or(terminations, truncations)
+            obs = next_obs
+
+        return ds[:size]

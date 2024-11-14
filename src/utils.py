@@ -1,10 +1,8 @@
 import gymnasium as gym
-import numpy as np
 from gymnasium.core import Env
 from gymnasium.envs.mujoco.mujoco_rendering import MujocoRenderer
 from metaworld.envs import ALL_V2_ENVIRONMENTS_GOAL_OBSERVABLE as ALL_ENVS
 
-# TODO:
 DEFAULT_CAMERA_CONFIG = {
     # "distance": 1.5,
     "azimuth": 160,

@@ -4,11 +4,15 @@ defaults:
  - world_model: wm_default
 
 exp_name: ???
+seed: 42
+iterations: 20
+# of training WM and policy 
+wm_ds_size: 10000
+# steps of real-world experience collected at each iteration to train the world model
+
+
 wandb:
   enable: false
   project_name: "ua_mbrl"
   entity: null #entity (team)
   tags: []
-
-
-seed: 42
