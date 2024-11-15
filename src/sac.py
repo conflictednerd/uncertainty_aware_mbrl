@@ -108,6 +108,7 @@ class SAC(Policy):
         timesteps: int,
         from_scratch: bool = False,
         wm: BaseWorldModel = None,
+        return_dataset=False,
     ):
         """
         Args:
@@ -119,6 +120,8 @@ class SAC(Policy):
         if wm is not None:
             wm.reset()
             wm.nn.eval()
+        if return_dataset:
+            _ds = []
         for step in range(0, timesteps, self.envs.num_envs):
             if step < self.cfg.learning_starts and from_scratch:
                 actions = np.array(
@@ -151,6 +154,17 @@ class SAC(Policy):
                         terminations[j],
                         None,
                     )
+                    if return_dataset:
+                        _ds.append(
+                            (
+                                self.obs[j],
+                                actions[j],
+                                next_obs[j],
+                                rewards[j],
+                                terminations[j],
+                                infos["t"][j],
+                            )
+                        )
 
             self.obs = next_obs
             self.autoreset = np.logical_or(terminations, truncations)
@@ -308,6 +322,9 @@ class SAC(Policy):
                     self._evaluate(logging_step=self.global_step + step)
         self.global_step += timesteps
 
+        if return_dataset:
+            return _ds
+
     @torch.no_grad()
     def act(self, obs: np.ndarray) -> np.ndarray:
         obs = torch.tensor(obs, dtype=torch.float32).to(self.device)
@@ -453,3 +470,15 @@ class SAC(Policy):
             obs = next_obs
 
         return ds[:size]
+
+    def save_actor(self):
+        torch.save(self.actor.state_dict(), f"runs/{self.cfg.run_name}/actor.pt")
+
+    def load_actor(self):
+        self.actor.load_state_dict(
+            torch.load(
+                f"runs/{self.cfg.run_name}/actor.pt",
+                map_location=self.device,
+                weights_only=True,
+            )
+        )

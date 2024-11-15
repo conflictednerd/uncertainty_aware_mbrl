@@ -71,7 +71,7 @@ class SuccessWrapper(gym.Wrapper):
         reward -= 2  # in [-2, 0]
         if term:
             reward += 10
-
+        info["t"] = self._h
         return obs, reward, term, trunc, info
 
 

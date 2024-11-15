@@ -1,16 +1,17 @@
 _target_: src.wm.SimpleWorldModel
 
-# Model architecture, training config, etc.
-# TODO
-layers: [256, 256]
+
+run_name: ???
+
+layers: [256, 256, 256]
 obs_dim: 39
 action_dim: 4
 lr: 3e-4
-state_coef: 1000.0
-reward_coef: 10.0
-term_coef: 1.0
+state_coef: 1e5
+reward_coef: 1.0
+term_coef: 1e2
 batch_size: 64
-epochs: 2
+epochs: 50
 num_envs: ${..policy.cfg.num_envs}
 horizon: 500
 cuda: ${..policy.cfg.cuda}

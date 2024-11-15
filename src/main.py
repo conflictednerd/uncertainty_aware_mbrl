@@ -1,4 +1,5 @@
 import logging
+import pickle
 import random
 import time
 import uuid
@@ -13,6 +14,45 @@ from omegaconf import DictConfig, OmegaConf
 from torch.utils.tensorboard import SummaryWriter
 
 logger = logging.getLogger(__name__)
+
+
+def setup(cfg):
+    logger.info(OmegaConf.to_yaml(cfg))
+
+    # Seeding
+    random.seed(cfg.seed)
+    np.random.seed(cfg.seed)
+    torch.manual_seed(cfg.seed)
+    torch.backends.cudnn.deterministic = True
+
+    # Initializations
+    run_name = (
+        f"{cfg.policy.cfg.env_id}__{cfg.exp_name}__{cfg.seed}__{int(time.time())}"
+    )
+    cfg.policy.cfg.run_name = run_name
+    cfg.world_model.run_name = run_name
+
+    # Logging
+    writer = SummaryWriter(f"runs/{run_name}")
+    writer.add_text(
+        "hyperparameters",
+        "|param|value|\n|-|-|\n%s"
+        % (
+            "\n".join(
+                [f"|policy_{key}|{value}|" for key, value in vars(cfg.policy).items()]
+            )
+        ),
+    )
+    writer.add_text(
+        "hyperparameters",
+        "|param|value|\n|-|-|\n%s"
+        % (
+            "\n".join(
+                [f"|wm_{key}|{value}|" for key, value in vars(cfg.world_model).items()]
+            )
+        ),
+    )
+    return writer, run_name
 
 
 @hydra.main(version_base=None, config_path="../config", config_name="config")
@@ -63,43 +103,11 @@ def main(cfg: DictConfig):
 
 @hydra.main(version_base=None, config_path="../config", config_name="config")
 def dream(cfg: DictConfig):
-    logger.info(OmegaConf.to_yaml(cfg))
-
-    # Seeding
-    random.seed(cfg.seed)
-    np.random.seed(cfg.seed)
-    torch.manual_seed(cfg.seed)
-    torch.backends.cudnn.deterministic = True
-
-    # Initializations
-    run_name = (
-        f"{cfg.policy.cfg.env_id}__{cfg.exp_name}__{cfg.seed}__{int(time.time())}"
-    )
-    cfg.policy.cfg.run_name = run_name
-
-    # Logging
-    writer = SummaryWriter(f"runs/{run_name}")
-    writer.add_text(
-        "hyperparameters",
-        "|param|value|\n|-|-|\n%s"
-        % (
-            "\n".join(
-                [f"|policy_{key}|{value}|" for key, value in vars(cfg.policy).items()]
-            )
-        ),
-    )
-    writer.add_text(
-        "hyperparameters",
-        "|param|value|\n|-|-|\n%s"
-        % (
-            "\n".join(
-                [f"|wm_{key}|{value}|" for key, value in vars(cfg.world_model).items()]
-            )
-        ),
-    )
+    writer, run_name = setup(cfg)
 
     wm = instantiate(cfg.world_model, writer=writer)
     wm.set_env(ALL_ENVS[cfg.policy.cfg.env_id](seed=0, **cfg.policy.cfg.env_kwargs))
+    cfg.world_model.run_name = run_name
     policy = instantiate(
         cfg.policy, seed=cfg.seed, writer=writer, use_wandb=cfg.wandb.enable
     )
@@ -129,6 +137,26 @@ def dream(cfg: DictConfig):
     policy.envs.close()
 
 
+@hydra.main(version_base=None, config_path="../config", config_name="config")
+def test_wm(cfg: DictConfig):
+    writer, run_name = setup(cfg)
+
+    policy = instantiate(cfg.policy, seed=cfg.seed, writer=writer, use_wandb=False)
+    wm = instantiate(cfg.world_model, writer=writer)
+    wm.set_env(ALL_ENVS[cfg.policy.cfg.env_id](seed=0, **cfg.policy.cfg.env_kwargs))
+
+    ds = policy.update(400000, from_scratch=True, return_dataset=True)
+    policy.save_actor()
+
+    # save ds as pickle file
+    with open(f"runs/{run_name}/ds.pkl", "wb") as f:
+        pickle.dump(ds, f, pickle.HIGHEST_PROTOCOL)
+
+    wm.train(ds)
+    wm.save_wm()
+
+
 if __name__ == "__main__":
     # main()
-    dream()
+    # dream()
+    test_wm()

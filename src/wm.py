@@ -53,6 +53,7 @@ class SimpleWorldModel(BaseWorldModel):
         num_envs,
         horizon,
         cuda,
+        run_name,
         writer,
     ) -> None:
         super().__init__()
@@ -64,6 +65,7 @@ class SimpleWorldModel(BaseWorldModel):
         self.epochs = epochs
         self.num_envs = num_envs
         self.horizon = horizon
+        self.run_name = run_name
         self.writer = writer
         self.step_counter = np.zeros(num_envs, dtype=np.int32)
         self._r = np.zeros(num_envs)
@@ -130,7 +132,10 @@ class SimpleWorldModel(BaseWorldModel):
         self.env = env
 
     def train(self, dataset):
+        sl_mean, rl_mean, tl_mean = 0.0, 0.0, 0.0
+
         self.nn.train()
+        dataset = [(s, a, sp, r, d) for s, a, sp, r, d, *_ in dataset]
         loader = DataLoader(dataset, self.batch_size, shuffle=True, num_workers=4)
         for epoch in range(self.epochs):
             for batch in loader:
@@ -146,6 +151,13 @@ class SimpleWorldModel(BaseWorldModel):
                 state_loss = F.mse_loss(pred_sp, sp)
                 reward_loss = F.mse_loss(pred_r, r)
                 termination_loss = F.binary_cross_entropy_with_logits(pred_term, term)
+
+                sl_mean = 0.01 * state_loss.item() + 0.99 * sl_mean
+                rl_mean = 0.01 * reward_loss.item() + 0.99 * rl_mean
+                tl_mean = 0.01 * termination_loss.item() + 0.99 * tl_mean
+                self.writer.add_scalar("WM/sl_mean", sl_mean, self._train_ticks)
+                self.writer.add_scalar("WM/rl_mean", rl_mean, self._train_ticks)
+                self.writer.add_scalar("WM/tl_mean", tl_mean, self._train_ticks)
 
                 loss = (
                     self.state_coef * state_loss
@@ -170,3 +182,15 @@ class SimpleWorldModel(BaseWorldModel):
                 )
                 self.writer.add_scalar("WM/loss", loss.item(), self._train_ticks)
                 self._train_ticks += 1
+
+    def save_wm(self):
+        torch.save(self.nn.state_dict(), f"runs/{self.run_name}/wm.pt")
+
+    def load_wm(self):
+        self.nn.load_state_dict(
+            torch.load(
+                f"runs/{self.cfg.run_name}/wm.pt",
+                map_location=self.device,
+                weights_only=True,
+            )
+        )
