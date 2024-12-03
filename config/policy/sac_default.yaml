@@ -1,11 +1,12 @@
-_target_: src.sac.SAC
+#_target_: src.sac.SAC
+_target_: sac.SAC
 
 
 # Algorithm
 cfg:
   cuda: true
-  capture_video: true
-  run_name: ???
+  capture_video: false
+  run_name: "run1"
 
   env_id: ???
   # the environment id of the task

@@ -1,12 +1,12 @@
 defaults:
  - _self_
  - policy: button_press
- - world_model: wm_default
+ - world_model: wm_v1_default
 
-exp_name: "test_exp"
+exp_name: "test_exp_v1"
 seed: 42
 iterations: 20
-# of training WM and policy 
+# of training WM and policy
 wm_ds_size: 10000
 # steps of real-world experience collected at each iteration to train the world model
 

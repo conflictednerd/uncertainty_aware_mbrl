@@ -1,5 +1,5 @@
 #_target_: src.wm.SimpleWorldModel
-_target_: wm.SimpleWorldModel
+_target_: wm_v1.SimpleWorldModel
 
 # Model architecture, training config, etc.
 # TODO
@@ -10,7 +10,7 @@ lr: 0.001
 state_coef: 1000.0
 reward_coef: 10.0
 term_coef: 1.0
-batch_size: 256
+batch_size: 128
 epochs: 2
 num_envs: ${..policy.cfg.num_envs}
 horizon: 500

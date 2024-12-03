@@ -144,7 +144,7 @@ class WorldModelNetwork(nn.Module):
         for layer in self.layers:
             latent = F.relu(layer(latent))
         obs_diff = (self.obs_head(latent).sigmoid() - 0.5) * 4  # obs_diff in [-2, 2]
-        reward = (self.reward_head(latent).sigmoid()-0.5) * 20  # reward in [-10, 10]
+        reward = (self.reward_head(latent).sigmoid() - 0.5) * 20  # reward in [-10, 10]
         termination = self.termination_head(latent)
         return obs_diff, reward, termination
 

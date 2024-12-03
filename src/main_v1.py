@@ -3,7 +3,7 @@ import pickle
 import random
 import time
 import uuid
-from datetime import datetime
+
 import hydra
 import numpy as np
 import torch
@@ -25,14 +25,10 @@ def setup(cfg):
     np.random.seed(cfg.seed)
     torch.manual_seed(cfg.seed)
     torch.backends.cudnn.deterministic = True
-    # Get the current date and time
-    current_time = datetime.now()
-    timestamp_str = current_time.strftime("%Y-%m-%d_%H-%M-%S")
-    reward="rewardcoeff0.8"
-    # cfg.policy.cfg.env_id="button-press"
+
     # Initializations
     run_name = (
-        f"{cfg.policy.cfg.env_id}_{cfg.exp_name}_{cfg.seed}_{timestamp_str}_{reward}"
+        f"{cfg.policy.cfg.env_id}__{cfg.exp_name}__{cfg.seed}__{int(time.time())}"
     )
     cfg.policy.cfg.run_name = run_name
     cfg.world_model.run_name = run_name
@@ -68,11 +64,10 @@ def main(cfg: DictConfig):
     np.random.seed(cfg.seed)
     torch.manual_seed(cfg.seed)
     torch.backends.cudnn.deterministic = True
-    current_time = datetime.now()
-    timestamp_str = current_time.strftime("%Y-%m-%d_%H-%M-%S")
+
     # Initializations
     run_name = (
-        f"{cfg.policy.cfg.env_id}_{cfg.exp_name}_{cfg.seed}_{timestamp_str}"
+        f"{cfg.policy.cfg.env_id}__{cfg.exp_name}__{cfg.seed}__{int(time.time())}"
     )
     cfg.policy.cfg.run_name = run_name
 
@@ -115,11 +110,10 @@ def dream(cfg: DictConfig):
     np.random.seed(cfg.seed)
     torch.manual_seed(cfg.seed)
     torch.backends.cudnn.deterministic = True
-    current_time = datetime.now()
-    timestamp_str = current_time.strftime("%Y-%m-%d_%H-%M-%S")
+
     # Initializations
     run_name = (
-        f"{cfg.policy.cfg.env_id}_{cfg.exp_name}_{cfg.seed}_{timestamp_str}"
+        f"{cfg.policy.cfg.env_id}__{cfg.exp_name}__{cfg.seed}__{int(time.time())}"
     )
     cfg.policy.cfg.run_name = run_name
 
@@ -174,32 +168,32 @@ def dream(cfg: DictConfig):
 
     policy.envs.close()
 
-@hydra.main(version_base=None, config_path="../config", config_name="config")
+@hydra.main(version_base=None, config_path="../config", config_name="config_v1")
 def test_wm(cfg: DictConfig):
-
     writer, run_name = setup(cfg)
-    policy = instantiate(cfg.policy, seed=cfg.seed, writer=writer, use_wandb=False)
+
+    # policy = instantiate(cfg.policy, seed=cfg.seed, writer=writer, use_wandb=False)
     wm = instantiate(cfg.world_model, writer=writer)
     wm.set_env(ALL_ENVS[cfg.policy.cfg.env_id](seed=0, **cfg.policy.cfg.env_kwargs))
     #
-    ds = policy.update(400000, from_scratch=True, return_dataset=True)
-    # # #
-    policy.save_actor()
+    # ds = policy.update(400000, from_scratch=True, return_dataset=True)
+    # # # #
+    # policy.save_actor()
 
-    # ## save ds as pickle file
-    with open(f"runs/{run_name}/ds.pkl", "wb") as f:
-        pickle.dump(ds, f, pickle.HIGHEST_PROTOCOL)
+    #save ds as pickle file
+    # with open(f"runs/{run_name}/ds.pkl", "wb") as f:
+    #     pickle.dump(ds, f, pickle.HIGHEST_PROTOCOL)
 
     ####train dataset with 400,000 ds  ID
-    # with open(f"runs/{'button-press-v2-goal-observable_test_exp_42_2024-12-02_14-59-09_rewardcoeff0.8'}/ds.pkl", "rb") as f:
-    #     ds = pickle.load(f)
+    with open(f"runs/{'button-press_test_exp_42_2024-12-02_12-16-54_rewardcoeff8'}/ds.pkl", "rb") as f:
+        ds = pickle.load(f)
 
     wm.train(ds)
     wm.save_wm()
 
 
     #Evaluate the World Model
-    run_name = 'button-press-v2-goal-observable__test_exp__42__1733101480'    ###trained model ID
+    run_name = 'button-press-v2-goal-observable__test_exp__42__1731792224'    ###trained model ID
     # wm.load_wm(run_name)
     checkpoint=torch.load(f"runs/{run_name}/wm.pt",weights_only=True)
 
