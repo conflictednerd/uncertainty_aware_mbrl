@@ -1,0 +1,14 @@
+_target_: src.wm.SeparatedWorldModel
+
+
+run_name: ???
+
+layers: [256, 256,]
+obs_dim: 39
+action_dim: 4
+lr: 3e-4
+batch_size: 256
+epochs: 50
+num_envs: ${..policy.cfg.num_envs}
+horizon: 500
+cuda: ${..policy.cfg.cuda}

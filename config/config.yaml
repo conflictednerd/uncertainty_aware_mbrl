@@ -1,7 +1,7 @@
 defaults:
  - _self_
  - policy: button_press
- - world_model: wm_default
+ - world_model: wm_sep
 
 exp_name: ???
 seed: 42

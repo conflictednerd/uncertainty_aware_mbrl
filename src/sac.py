@@ -161,7 +161,13 @@ class SAC(Policy):
                                 actions[j],
                                 next_obs[j],
                                 rewards[j],
-                                terminations[j],
+                                np.array(
+                                    [
+                                        bool(infos["success"][j]),
+                                        bool(infos["near_object"][j]),
+                                        bool(infos["grasp_success"][j]),
+                                    ]
+                                ),
                                 infos["t"][j],
                             )
                         )
@@ -382,17 +388,6 @@ class SAC(Policy):
                         )
                         episode_count += 1
 
-            # if "final_info" in infos:
-            #     for info in infos["final_info"]:
-            #         if info and "episode" in info:
-            #             epi_rews.append(float(info["episode"]["r"]))
-            #             epi_lens.append(float(info["episode"]["l"]))
-            #             assert "success" in info, f"info.keys={list(info.keys())}"
-            #             success.append(
-            #                 bool(info["success"]) and bool(info["grasp_success"])
-            #             )
-            #             episode_count += 1
-
         logger.info("===== Evaluation =====")
         logger.info(f"n episodes = {len(epi_lens)}")
         logger.info(
@@ -429,7 +424,7 @@ class SAC(Policy):
         do_random=False,
     ) -> List[Tuple[np.ndarray, np.ndarray, np.ndarray, float, bool]]:
         """
-        Returns a dataset of transitions using the policy
+        Returns a dataset of transitions collected with the policy
         """
         seed = 232323
         envs = gym.vector.AsyncVectorEnv(
@@ -463,7 +458,19 @@ class SAC(Policy):
             for j in range(8):
                 if not autoreset[j]:
                     ds.append(
-                        (obs[j], actions[j], next_obs[j], rewards[j], terminations[j])
+                        (
+                            obs[j],
+                            actions[j],
+                            next_obs[j],
+                            rewards[j],
+                            np.array(
+                                [
+                                    bool(infos["success"][j]),
+                                    bool(infos["near_object"][j]),
+                                    bool(infos["grasp_success"][j]),
+                                ]
+                            ),
+                        )
                     )
 
             autoreset = np.logical_or(terminations, truncations)
@@ -474,10 +481,11 @@ class SAC(Policy):
     def save_actor(self):
         torch.save(self.actor.state_dict(), f"runs/{self.cfg.run_name}/actor.pt")
 
-    def load_actor(self):
+    def load_actor(self, path=None):
+        path = path or f"runs/{self.cfg.run_name}/actor.pt"
         self.actor.load_state_dict(
             torch.load(
-                f"runs/{self.cfg.run_name}/actor.pt",
+                path,
                 map_location=self.device,
                 weights_only=True,
             )

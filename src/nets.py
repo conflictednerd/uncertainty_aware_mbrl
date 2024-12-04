@@ -158,3 +158,51 @@ class WorldModelNetwork(nn.Module):
         obs_diff, reward, termination = self(s, a)
         obs = s + obs_diff
         return obs, reward.flatten(), termination.flatten()
+
+
+class SeparatedWorldModelNetwork(nn.Module):
+    def __init__(self, layers, obs_dim, action_dim, n_flags) -> None:
+        super().__init__()
+        self.norm = nn.BatchNorm1d(obs_dim + action_dim, affine=False)
+        self.state_prediction_net = nn.Sequential(
+            *self._build_layers(obs_dim + action_dim, obs_dim)
+        )
+        self.reward_prediction_net = nn.Sequential(
+            *self._build_layers(obs_dim + action_dim, 1)
+        )
+        self.flag_prediction_net = nn.Sequential(
+            *self._build_layers(obs_dim + action_dim, n_flags)
+        )
+
+    def _build_layers(layers, in_dim, out_dim):
+        li = []
+        for _in, _out in zip([in_dim] + layers, layers + [out_dim]):
+            li.append(nn.Linear(_in, _out))
+            li.append(nn.ReLU())
+        return li[:-1]
+
+    def forward(self, s, a):
+        input = self.norm(torch.cat((s, a), dim=-1))
+
+        s_diff = self.state_prediction_net(input.clone())
+        s_diff = F.tanh(s_diff) * 2  # s_diff in [-2, 2]
+
+        # GT reward is in [-2, 0]
+        # predicted reward is in [-4, 2]
+        reward = self.reward_prediction_net(input.clone())
+        reward = F.tanh(reward) * 3 - 1  # r in [-4, 2]
+
+        flags = self.flag_prediction_net(input.clone())
+
+        return s_diff, reward, flags
+
+    def step(self, s, a):
+        """
+        Returns:
+            obs: next observation (Bx|S|)
+            reward: predicted reward (B)
+            flags: logit values for flag predictions (Bxn_flags)
+        """
+        s_diff, reward, flags = self(s, a)
+        next_s = s + s_diff
+        return next_s, reward.flatten(), flags

@@ -58,7 +58,7 @@ class SuccessWrapper(gym.Wrapper):
     def step(self, action):
         self._h += 1
         obs, reward, term, trunc, info = self.env.step(action)
-        term = term or (bool(info["success"]) and bool(info["grasp_success"]))
+        # term = term or (bool(info["success"]) and bool(info["grasp_success"]))
         trunc = trunc or (self._h >= 500)
         # Reward shaping:
         # The original reward is in [0, 10]
@@ -69,8 +69,7 @@ class SuccessWrapper(gym.Wrapper):
         # Below we implement the second approach
         reward /= 5  # in [0, 2]
         reward -= 2  # in [-2, 0]
-        if term:
-            reward += 10
+        assert -2 <= reward <= 0, f"Out of bound reward encountered: reward = {reward}"
         info["t"] = self._h
         return obs, reward, term, trunc, info
 

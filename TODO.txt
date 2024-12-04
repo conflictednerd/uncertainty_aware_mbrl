@@ -16,3 +16,28 @@
 3. Implement SAC with training inside world model
 4. Maintain two sac policies: one for exploration (reward = model uncertainty) and one for exploitation (task reward)
     Both are trained solely in simulation. Periodically, they both interact with the environment to collect data for world model training.
+
+
+
+=================
+0. Discard success wrapper and just measure the performance in terms of the reward. No need to predict terminated (but we can predict success flag)
+1. Train a SAC agent and save it along with a dataset that it generates for at least two envs.
+2. Modify world model config and code (use exp transformation)
+3. Do a hyperparameter search over world models using the full dataset
+4. Train and save a world model
+5. Do evaluation on that (accuracy in predicting large and small rewards, state l2 norm, reward sign prediction, etc.)
+6. Train a sac agent by interacting with the world model
+7. Evaluate the wm-trained sac agent and report the reward.
+8. Train an uncertainty-aware world model (as in 4)
+9. Evaluate as in 5, but also the correlation between model error and uncertainty
+10. Train a sac agent with ua-wm and report performance
+11. Train a sac agent iteratively with ua-wm. Log the correlation between model uncertainty and model error as training progresses.
+12. Use early stopping based on model uncertainty and see if it helps.
+13. Do all of the above for 2 or 3 environments
+
+
+=================
+Notes:
+1. In sac data collection, store the flags as well.
+2. Do not use success wrapper. Episodes should not terminate.
+3. Smaller horizon may work better (in both world model and acutal env)

@@ -8,7 +8,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from .nets import WorldModelNetwork
+from .nets import SeparatedWorldModelNetwork, WorldModelNetwork
 
 logger = logging.getLogger(__name__)
 
@@ -190,6 +190,155 @@ class SimpleWorldModel(BaseWorldModel):
         self.nn.load_state_dict(
             torch.load(
                 f"runs/{self.cfg.run_name}/wm.pt",
+                map_location=self.device,
+                weights_only=True,
+            )
+        )
+
+
+class SeparatedWorldModel(BaseWorldModel):
+    def __init__(
+        self,
+        layers,
+        obs_dim,
+        action_dim,
+        lr,
+        batch_size,
+        epochs,
+        num_envs,
+        horizon,
+        cuda,
+        run_name,
+        writer,
+    ) -> None:
+        # Uses separate networks for reward, state, and flag prediction
+        super().__init__()
+        self.nn = SeparatedWorldModelNetwork(layers, obs_dim, action_dim)
+        self.batch_size = batch_size
+        self.epochs = epochs
+        self.num_envs = num_envs
+        self.horizon = horizon
+        self.run_name = run_name
+        self.writer = writer
+        self.step_counter = np.zeros(num_envs, dtype=np.int32)
+        self._r = np.zeros(num_envs)
+
+        self.optimizer = optim.Adam(self.nn.parameters(), lr)
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() and cuda else "cpu"
+        )
+
+        self.nn.to(self.device)
+
+        self._train_ticks = 0  # Tracks number of gradient updates applied to model
+
+    @torch.no_grad()
+    def step(self, obs: np.ndarray, action: np.ndarray) -> Tuple[np.ndarray | Dict]:
+        # At the beginning of an episode a random obs is used instead of the passed obs.
+        if np.any(self.step_counter == 0):
+            obs[self.step_counter == 0] = self._get_start_obs()[self.step_counter == 0]
+
+        # np to torch
+        obs = torch.from_numpy(obs).float().to(self.device)
+        action = torch.from_numpy(action).float().to(self.device)
+
+        # step
+        new_obs, reward, flags = self.nn.step(obs, action)
+
+        # torch to np
+        new_obs = new_obs.cpu().numpy()
+        reward = reward.cpu().numpy()
+        flags = flags.cpu().numpy()
+
+        # termination and truncation
+        truncs = self.step_counter >= self.horizon - 1
+        terms = np.zeros_like(truncs, dtype=bool)
+
+        self.step_counter += 1
+        assert self._r.shape == reward.shape, "{self._r.shape}, {reward.shape}"
+        self._r += reward
+        info = {
+            "episode": {"r": np.copy(self._r), "l": np.copy(self.step_counter)},
+            "success": flags[:, 0],
+            "near_object": flags[:, 1],
+            "grasp_success": flags[:, 2],
+        }
+
+        # reset terminated/truncated episodes
+        self.step_counter[np.logical_or(terms, truncs)] = 0
+        self._r[np.logical_or(terms, truncs)] = 0
+
+        return new_obs, reward, terms, truncs, info
+
+    def _get_start_obs(self):
+        # Get num_envs starting obs from self.env and return them
+        start_obs = []
+        for i in range(self.num_envs):
+            start_obs.append(self.env.reset()[0])
+        return np.stack(start_obs)
+
+    def reset(self):
+        # resets step_counter
+        self.step_counter = np.zeros(self.num_envs)
+        self._r = np.zeros(self.num_envs)
+
+    def set_env(self, env):
+        # sets self.env (only used to generate new observations on reset)
+        self.env = env
+
+    def train(self, dataset):
+        self.nn.train()
+        dataset = [(s, a, sp, r, f) for s, a, sp, r, f, *_ in dataset]
+        loader = DataLoader(dataset, self.batch_size, shuffle=True, num_workers=0)
+        for epoch in range(self.epochs):
+            for batch in loader:
+                s, a, sp, r, flags = batch
+                s = s.float().to(self.device)
+                a = a.float().to(self.device)
+                sp = sp.float().to(self.device)
+                r = r.float().to(self.device)
+                flags = flags.float().to(self.device)
+
+                pred_sp, pred_r, pred_flags = self.nn.step(s, a)
+
+                state_loss = F.mse_loss(pred_sp, sp)
+                reward_loss = F.mse_loss(pred_r, r)
+                flag_losses = []
+                for i in range(flags.shape[-1]):
+                    flag_losses.append(
+                        F.binary_cross_entropy_with_logits(
+                            pred_flags[:, i], flags[:, i]
+                        )
+                    )
+
+                loss = state_loss + reward_loss + sum(flag_losses)
+
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
+                logger.info(
+                    f"state_loss: {state_loss.item():.6f}, reward_loss: {reward_loss.item():.4f}, flags_loss: {sum(flag_losses).item():.4f}"
+                )
+                self.writer.add_scalar(
+                    "WM/state_loss", state_loss.item(), self._train_ticks
+                )
+                self.writer.add_scalar(
+                    "WM/reward_loss", reward_loss.item(), self._train_ticks
+                )
+                for i, name in enumerate(["success", "near_object", "grasp_success"]):
+                    self.writer.add_scalar(
+                        f"WM/{name}_loss", flag_losses[i].item(), self._train_ticks
+                    )
+                self._train_ticks += 1
+
+    def save_wm(self):
+        torch.save(self.nn.state_dict(), f"runs/{self.run_name}/wm.pt")
+
+    def load_wm(self, path=None):
+        path = path or f"runs/{self.cfg.run_name}/wm.pt"
+        self.nn.load_state_dict(
+            torch.load(
+                path,
                 map_location=self.device,
                 weights_only=True,
             )
